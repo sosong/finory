@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { LoanEntry } from '../types';
-import { calcInterest, calcTotalRepayment, formatMoney, formatDate } from '../utils';
+import { calcInterest, calcInterestBreakdown, calcTotalRepayment, formatMoney, formatDate } from '../utils';
 
 interface Props {
   loan: LoanEntry;
@@ -13,7 +14,30 @@ interface Props {
 export default function LoanCard({ loan, onRepay, onDelete, onEdit, onUpdateDueDate }: Props) {
   const [editing, setEditing] = useState(false);
   const [newDueDate, setNewDueDate] = useState(loan.dueDate || '');
+  const [tooltip, setTooltip] = useState<{ top: number; left: number; below: boolean } | null>(null);
+  const iconRef = useRef<HTMLSpanElement>(null);
+
+  const TOOLTIP_WIDTH = 270;
+  const TOOLTIP_HEIGHT = 240;
+
+  function showTooltip() {
+    const el = iconRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const below = rect.top < TOOLTIP_HEIGHT + 16;
+    // 水平：以图标为基准左对齐，但不超出视口
+    let left = rect.left - 10;
+    const maxLeft = window.innerWidth - TOOLTIP_WIDTH - 12;
+    if (left > maxLeft) left = Math.max(12, maxLeft);
+    const top = below ? rect.bottom + 8 : rect.top - 8;
+    setTooltip({ top, left, below });
+  }
+
+  function hideTooltip() {
+    setTooltip(null);
+  }
   const interest = calcInterest(loan);
+  const breakdown = calcInterestBreakdown(loan);
   const total = calcTotalRepayment(loan);
   const today = new Date().toISOString().split('T')[0];
   const hasDueDate = !!loan.dueDate;
@@ -69,7 +93,62 @@ export default function LoanCard({ loan, onRepay, onDelete, onEdit, onUpdateDueD
           </span>
         </div>
         <div className="detail-row highlight">
-          <span className="detail-label">应付利息</span>
+          <span className="detail-label">
+            应付利息
+            <span
+              className="info-tooltip"
+              tabIndex={0}
+              ref={iconRef}
+              onMouseEnter={showTooltip}
+              onMouseLeave={hideTooltip}
+              onFocus={showTooltip}
+              onBlur={hideTooltip}
+            >
+              <span className="info-icon">?</span>
+            </span>
+            {tooltip &&
+              createPortal(
+                <div
+                  className={`tooltip-content ${tooltip.below ? 'below' : ''}`}
+                  style={{ top: tooltip.top, left: tooltip.left }}
+                >
+                  <div className="tooltip-title">利息计算明细</div>
+                  <div className="tooltip-line">
+                    <span>计息区间</span>
+                    <span>{formatDate(breakdown.startDate)} → {formatDate(breakdown.endDate)}</span>
+                  </div>
+                  <div className="tooltip-line">
+                    <span>本金</span>
+                    <span>¥{formatMoney(breakdown.principal)}</span>
+                  </div>
+                  <div className="tooltip-line">
+                    <span>年利率</span>
+                    <span>{breakdown.annualRate}%（按年复利）</span>
+                  </div>
+                  <div className="tooltip-line">
+                    <span>整年数</span>
+                    <span>{breakdown.fullYears} 年</span>
+                  </div>
+                  <div className="tooltip-line">
+                    <span>整年复利后本金</span>
+                    <span>¥{formatMoney(breakdown.compoundedPrincipal)}</span>
+                  </div>
+                  <div className="tooltip-line">
+                    <span>不足整年</span>
+                    <span>{breakdown.partialDays}/{breakdown.yearDays} 天（{(breakdown.fraction * 100).toFixed(2)}%）</span>
+                  </div>
+                  <div className="tooltip-formula">
+                    本息 = {formatMoney(breakdown.principal)} × (1 + {breakdown.annualRate}%)<sup>{breakdown.fullYears}</sup>
+                    {` × (1 + ${breakdown.annualRate}% × ${(breakdown.fraction * 100).toFixed(2)}%)`}
+                  </div>
+                  <div className="tooltip-line tooltip-result">
+                    <span>应付利息</span>
+                    <span>¥{formatMoney(breakdown.interest)}</span>
+                  </div>
+                </div>,
+                document.body
+              )}
+          </span>
           <span className="detail-value accent">¥{formatMoney(interest)}</span>
         </div>
         <div className="detail-row highlight">

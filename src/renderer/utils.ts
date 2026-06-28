@@ -1,19 +1,83 @@
 import { LoanEntry, BorrowerSummary } from './types';
 
 /**
- * 计算某条借款截至指定日期的应付利息（按年利率，日计息）
+ * 计算某条借款截至指定日期的应付利息（按年复利）
+ * 整年部分按复利计算，不满一年的剩余部分按单利计算
+ * 整年按真实日历年对齐（按周年日累计，自动处理闰年），
+ * 零头按"距上一个周年日的天数 / 当年实际天数"折算
+ * 公式：本息 = 本金 × (1 + 年利率)^整年数 × (1 + 年利率 × 当年已过比例)
  */
 export function calcInterest(loan: LoanEntry, asOfDate?: string): number {
+  return calcInterestBreakdown(loan, asOfDate).interest;
+}
+
+export interface InterestBreakdown {
+  principal: number;
+  annualRate: number;
+  startDate: string;
+  endDate: string;
+  fullYears: number;
+  fraction: number;
+  partialDays: number;
+  yearDays: number;
+  compoundedPrincipal: number;
+  interest: number;
+}
+
+/**
+ * 计算某条借款利息的详细分解，用于展示计算过程
+ */
+export function calcInterestBreakdown(loan: LoanEntry, asOfDate?: string): InterestBreakdown {
   const start = new Date(loan.date);
-  const end = asOfDate
+  const endObj = asOfDate
     ? new Date(asOfDate)
     : loan.dueDate
       ? new Date(loan.dueDate)
       : new Date();
-  const diffMs = end.getTime() - start.getTime();
-  if (diffMs <= 0) return 0;
-  const days = diffMs / (1000 * 60 * 60 * 24);
-  return loan.amount * (loan.annualRate / 100) * (days / 365);
+  const rate = loan.annualRate / 100;
+  const base: InterestBreakdown = {
+    principal: loan.amount,
+    annualRate: loan.annualRate,
+    startDate: loan.date,
+    endDate: endObj.toISOString().split('T')[0],
+    fullYears: 0,
+    fraction: 0,
+    partialDays: 0,
+    yearDays: 365,
+    compoundedPrincipal: loan.amount,
+    interest: 0,
+  };
+  if (endObj.getTime() <= start.getTime()) return base;
+
+  let fullYears = 0;
+  let anniversary = new Date(start);
+  while (true) {
+    const next = new Date(anniversary);
+    next.setFullYear(next.getFullYear() + 1);
+    if (next.getTime() <= endObj.getTime()) {
+      anniversary = next;
+      fullYears++;
+    } else {
+      break;
+    }
+  }
+  const nextAnniversary = new Date(anniversary);
+  nextAnniversary.setFullYear(nextAnniversary.getFullYear() + 1);
+  const yearMs = nextAnniversary.getTime() - anniversary.getTime();
+  const partialMs = endObj.getTime() - anniversary.getTime();
+  const fraction = partialMs / yearMs;
+  const compoundedPrincipal = loan.amount * Math.pow(1 + rate, fullYears);
+  const totalAmount = compoundedPrincipal * (1 + rate * fraction);
+
+  return {
+    ...base,
+    fullYears,
+    fraction,
+    partialDays: Math.round(partialMs / 86400000),
+    yearDays: Math.round(yearMs / 86400000),
+    compoundedPrincipal,
+    interest: totalAmount - loan.amount,
+  };
 }
 
 /**
