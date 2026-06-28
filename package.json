@@ -1,0 +1,33 @@
+{
+  "name": "finory",
+  "version": "1.0.0",
+  "description": "借款账本 - 轻松管理借贷记录",
+  "main": "dist/main/main.js",
+  "scripts": {
+    "dev": "concurrently \"vite --config vite.config.ts\" \"tsc -p tsconfig.main.json && VITE_DEV_SERVER_URL=http://localhost:5173 electron .\"",
+    "build:renderer": "vite build --config vite.config.ts",
+    "build:main": "tsc -p tsconfig.main.json",
+    "build": "npm run build:renderer && npm run build:main",
+    "pack": "npm run build && electron-builder --mac --arm64 --config electron-builder.json",
+    "pack:dmg": "npm run build && electron-builder --mac --arm64 --config electron-builder.json || (echo 'electron-builder DMG failed, using hdiutil fallback...' && hdiutil create -volname Finory -srcfolder release/mac-arm64/Finory.app -ov -format UDZO release/Finory-1.0.0-arm64.dmg)",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.3",
+    "concurrently": "^9.2.3",
+    "electron": "^42.5.0",
+    "electron-builder": "^26.15.3",
+    "typescript": "^6.0.3",
+    "vite": "^8.1.0"
+  }
+}

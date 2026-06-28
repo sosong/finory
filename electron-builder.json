@@ -1,0 +1,35 @@
+{
+  "appId": "com.finory.app",
+  "productName": "Finory",
+  "directories": {
+    "output": "release"
+  },
+  "files": [
+    "dist/**/*"
+  ],
+  "mac": {
+    "category": "public.app-category.finance",
+    "target": [
+      {
+        "target": "dmg",
+        "arch": ["arm64"]
+      }
+    ],
+    "icon": "build/icon.icns"
+  },
+  "dmg": {
+    "title": "Finory",
+    "contents": [
+      {
+        "x": 130,
+        "y": 220
+      },
+      {
+        "x": 410,
+        "y": 220,
+        "type": "link",
+        "path": "/Applications"
+      }
+    ]
+  }
+}
