@@ -23,6 +23,10 @@ export default function App() {
   const [toast, setToast] = useState<string | null>(null);
   // 待导入的记录（解析成功后弹窗让用户选择追加/覆盖）
   const [pendingImport, setPendingImport] = useState<LoanEntry[] | null>(null);
+  // 更新提示
+  const [updateInfo, setUpdateInfo] = useState<{ version: string; notes: string; downloadUrl: string; fileName: string } | null>(null);
+  const [updateStage, setUpdateStage] = useState<'idle' | 'downloading' | 'done'>('idle');
+  const [downloadPercent, setDownloadPercent] = useState(0);
 
   const [editingLoan, setEditingLoan] = useState<LoanEntry | null>(null);
   // 单条还款额
@@ -39,6 +43,40 @@ export default function App() {
     const t = setTimeout(() => setToast(null), 2500);
     return () => clearTimeout(t);
   }, [toast]);
+
+  useEffect(() => {
+    window.finoryAPI.checkUpdate().then((info) => {
+      if (info.hasUpdate && info.version && info.downloadUrl && info.fileName) {
+        setUpdateInfo({
+          version: info.version,
+          notes: info.notes ?? '',
+          downloadUrl: info.downloadUrl,
+          fileName: info.fileName,
+        });
+      }
+    });
+    const off = window.finoryAPI.onUpdateProgress((p) => setDownloadPercent(p));
+    return off;
+  }, []);
+
+  async function handleDownloadUpdate() {
+    if (!updateInfo) return;
+    setUpdateStage('downloading');
+    setDownloadPercent(0);
+    const result = await window.finoryAPI.downloadUpdate(updateInfo.downloadUrl, updateInfo.fileName);
+    if (result.ok) {
+      setUpdateStage('done');
+    } else {
+      setUpdateStage('idle');
+      setToast('下载失败，请稍后重试');
+    }
+  }
+
+  function dismissUpdate() {
+    setUpdateInfo(null);
+    setUpdateStage('idle');
+    setDownloadPercent(0);
+  }
 
   const filteredLoans = useMemo(() => {
     if (viewMode === 'active') return loans.filter((l) => l.status === 'active');
@@ -270,11 +308,11 @@ export default function App() {
             <div className="stat-label">在借笔数</div>
           </div>
           <div className="stat-item">
-            <div className="stat-value">¥{stats.totalPrincipal.toLocaleString('zh-CN', { minimumFractionDigits: 2 })}</div>
+            <div className="stat-value">¥{formatMoney(stats.totalPrincipal)}</div>
             <div className="stat-label">在借本金</div>
           </div>
           <div className="stat-item accent">
-            <div className="stat-value">¥{stats.totalWithInterest.toLocaleString('zh-CN', { minimumFractionDigits: 2 })}</div>
+            <div className="stat-value">¥{formatMoney(stats.totalWithInterest)}</div>
             <div className="stat-label">截至今日本息合计</div>
           </div>
         </div>
@@ -366,6 +404,43 @@ export default function App() {
       )}
 
       {toast && <div className="toast">{toast}</div>}
+
+      {updateInfo && (
+        <div className="modal-overlay" onClick={updateStage === 'downloading' ? undefined : dismissUpdate}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+            <h2>发现新版本 v{updateInfo.version}</h2>
+            {updateStage === 'idle' && (
+              <>
+                {updateInfo.notes && (
+                  <div className="update-notes">{updateInfo.notes}</div>
+                )}
+                <p className="hint-text">点击「更新」将自动下载并打开安装包，下载完成后请将 Finory 拖入 Applications 文件夹覆盖安装。</p>
+                <div className="form-actions">
+                  <button className="btn-secondary" onClick={dismissUpdate}>稍后再说</button>
+                  <button className="btn-primary" onClick={handleDownloadUpdate}>更新</button>
+                </div>
+              </>
+            )}
+            {updateStage === 'downloading' && (
+              <>
+                <p>正在下载更新…{downloadPercent}%</p>
+                <div className="progress-bar">
+                  <div className="progress-fill" style={{ width: `${downloadPercent}%` }} />
+                </div>
+              </>
+            )}
+            {updateStage === 'done' && (
+              <>
+                <p>下载完成，已打开安装窗口。</p>
+                <p className="hint-text">请在弹出的窗口中将 <strong>Finory</strong> 拖入 <strong>Applications</strong> 文件夹覆盖安装，然后重新打开应用。</p>
+                <div className="form-actions">
+                  <button className="btn-primary" onClick={dismissUpdate}>知道了</button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       {pendingImport && (
         <div className="modal-overlay" onClick={() => setPendingImport(null)}>

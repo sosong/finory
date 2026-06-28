@@ -33,6 +33,15 @@ declare global {
       exportData: (content: string, defaultFileName: string) => Promise<{ ok: boolean; path?: string }>;
       importData: () => Promise<{ ok: boolean; content?: string }>;
       replaceLoans: (loans: LoanEntry[]) => Promise<LoanEntry[]>;
+      checkUpdate: () => Promise<{
+        hasUpdate: boolean;
+        version?: string;
+        notes?: string;
+        downloadUrl?: string;
+        fileName?: string;
+      }>;
+      downloadUpdate: (downloadUrl: string, fileName: string) => Promise<{ ok: boolean; error?: string }>;
+      onUpdateProgress: (cb: (percent: number) => void) => () => void;
     };
   }
 }

@@ -244,6 +244,33 @@ input, button {
   line-height: 1.7;
 }
 
+.update-notes {
+  max-height: 180px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  background: #f0f1f3;
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  margin: 12px 0;
+}
+
+.progress-bar {
+  height: 8px;
+  background: rgba(0, 0, 0, 0.08);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-top: 8px;
+}
+.progress-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 999px;
+  transition: width 0.2s;
+}
+
 .btn-danger {
   padding: 8px 20px;
   background: var(--red);

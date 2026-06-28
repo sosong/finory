@@ -2,6 +2,8 @@
 
 一个运行在 macOS 上的个人借款管理桌面应用，帮你清晰记录每一笔借出款项，自动计算利息，轻松追踪还款状态。
 
+![Finory 运行截图](docs/screenshot.png)
+
 ## 下载安装
 
 [![下载最新版本](https://img.shields.io/github/v/release/sosong/finory?label=下载%20DMG&style=for-the-badge)](https://github.com/sosong/finory/releases/latest)
