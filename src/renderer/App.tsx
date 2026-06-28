@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { LoanEntry } from './types';
-import { groupByBorrower, calcTotalRepayment, formatMoney } from './utils';
+import { groupByBorrower, calcTotalRepayment, calcInterest, formatMoney, buildExportJSON, parseImportJSON } from './utils';
 import AddLoanForm from './components/AddLoanForm';
 import EditLoanForm from './components/EditLoanForm';
 import BorrowerGroup from './components/BorrowerGroup';
@@ -20,6 +20,9 @@ export default function App() {
   const [dueDateModal, setDueDateModal] = useState<string | null>(null);
   const [bulkDueDate, setBulkDueDate] = useState('');
   const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+  // 待导入的记录（解析成功后弹窗让用户选择追加/覆盖）
+  const [pendingImport, setPendingImport] = useState<LoanEntry[] | null>(null);
 
   const [editingLoan, setEditingLoan] = useState<LoanEntry | null>(null);
   // 单条还款额
@@ -30,6 +33,12 @@ export default function App() {
   useEffect(() => {
     window.finoryAPI.getLoans().then(setLoans);
   }, []);
+
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 2500);
+    return () => clearTimeout(t);
+  }, [toast]);
 
   const filteredLoans = useMemo(() => {
     if (viewMode === 'active') return loans.filter((l) => l.status === 'active');
@@ -45,10 +54,17 @@ export default function App() {
   }, [loans]);
 
   const stats = useMemo(() => {
+    const today = new Date().toISOString().split('T')[0];
     const active = loans.filter((l) => l.status === 'active');
     const totalPrincipal = active.reduce((s, l) => s + l.amount, 0);
+    const totalInterest = active.reduce((s, l) => s + calcInterest(l, today), 0);
     const borrowerCount = new Set(active.map((l) => l.borrower)).size;
-    return { totalPrincipal, activeCount: active.length, borrowerCount };
+    return {
+      totalPrincipal,
+      totalWithInterest: totalPrincipal + totalInterest,
+      activeCount: active.length,
+      borrowerCount,
+    };
   }, [loans]);
 
   async function handleAddLoan(loan: LoanEntry) {
@@ -143,6 +159,44 @@ export default function App() {
     setBulkRepayAmounts({});
   }
 
+  async function handleExport(borrower?: string) {
+    if (loans.length === 0) {
+      setToast('暂无数据可导出');
+      return;
+    }
+    const content = buildExportJSON(loans, borrower);
+    const today = new Date().toISOString().split('T')[0];
+    const name = borrower ? `finory-${borrower}-${today}.json` : `finory-全部-${today}.json`;
+    const result = await window.finoryAPI.exportData(content, name);
+    if (result.ok) setToast('导出成功');
+  }
+
+  async function handleImport() {
+    const result = await window.finoryAPI.importData();
+    if (!result.ok || !result.content) return;
+    let parsed: LoanEntry[];
+    try {
+      parsed = parseImportJSON(result.content);
+    } catch {
+      setToast('文件格式错误，无法解析');
+      return;
+    }
+    if (parsed.length === 0) {
+      setToast('文件中没有有效记录');
+      return;
+    }
+    setPendingImport(parsed);
+  }
+
+  async function handleConfirmImport(mode: 'append' | 'overwrite') {
+    if (!pendingImport) return;
+    const next = mode === 'overwrite' ? pendingImport : [...loans, ...pendingImport];
+    const updated = await window.finoryAPI.replaceLoans(next);
+    setLoans(updated);
+    setPendingImport(null);
+    setToast(`已导入 ${pendingImport.length} 条记录`);
+  }
+
   // 还款确认弹窗内容
   function renderConfirmContent() {
     if (!confirmAction) return null;
@@ -219,6 +273,10 @@ export default function App() {
             <div className="stat-value">¥{stats.totalPrincipal.toLocaleString('zh-CN', { minimumFractionDigits: 2 })}</div>
             <div className="stat-label">在借本金</div>
           </div>
+          <div className="stat-item accent">
+            <div className="stat-value">¥{stats.totalWithInterest.toLocaleString('zh-CN', { minimumFractionDigits: 2 })}</div>
+            <div className="stat-label">截至今日本息合计</div>
+          </div>
         </div>
 
         <div className="toolbar">
@@ -233,9 +291,17 @@ export default function App() {
               </button>
             ))}
           </div>
-          <button className="btn-primary" onClick={() => setShowAddForm(true)}>
-            + 新增借款
-          </button>
+          <div className="toolbar-actions">
+            <button className="btn-secondary" onClick={handleImport}>
+              导入
+            </button>
+            <button className="btn-secondary" onClick={() => handleExport()}>
+              导出全部
+            </button>
+            <button className="btn-primary" onClick={() => setShowAddForm(true)}>
+              + 新增借款
+            </button>
+          </div>
         </div>
 
         <div className="loan-list">
@@ -255,6 +321,7 @@ export default function App() {
                 onEditLoan={handleEditLoan}
                 onUpdateDueDate={handleUpdateDueDate}
                 onSetBorrowerDueDate={handleSetBorrowerDueDate}
+                onExport={handleExport}
               />
             ))
           )}
@@ -292,6 +359,34 @@ export default function App() {
                 onClick={handleConfirm}
               >
                 确认
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {toast && <div className="toast">{toast}</div>}
+
+      {pendingImport && (
+        <div className="modal-overlay" onClick={() => setPendingImport(null)}>
+          <div className="modal-card confirm-modal" onClick={(e) => e.stopPropagation()}>
+            <h2>导入数据</h2>
+            <p>
+              已解析到 <strong>{pendingImport.length}</strong> 条记录。请选择导入方式：
+            </p>
+            <p className="hint-text">
+              · 追加：保留现有记录，将导入记录添加进来<br />
+              · 覆盖：用导入数据完全替换现有 {loans.length} 条记录（不可恢复）
+            </p>
+            <div className="form-actions">
+              <button className="btn-secondary" onClick={() => setPendingImport(null)}>
+                取消
+              </button>
+              <button className="btn-danger" onClick={() => handleConfirmImport('overwrite')}>
+                覆盖全部
+              </button>
+              <button className="btn-primary" onClick={() => handleConfirmImport('append')}>
+                追加合并
               </button>
             </div>
           </div>

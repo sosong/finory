@@ -30,6 +30,9 @@ declare global {
       repayLoan: (id: string, repaidAmount: number) => Promise<LoanEntry[]>;
       repayBorrower: (borrower: string, repaidAmounts: Record<string, number>) => Promise<LoanEntry[]>;
       setBorrowerDueDate: (borrower: string, dueDate: string) => Promise<LoanEntry[]>;
+      exportData: (content: string, defaultFileName: string) => Promise<{ ok: boolean; path?: string }>;
+      importData: () => Promise<{ ok: boolean; content?: string }>;
+      replaceLoans: (loans: LoanEntry[]) => Promise<LoanEntry[]>;
     };
   }
 }

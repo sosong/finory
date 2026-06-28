@@ -117,6 +117,63 @@ export function groupByBorrower(loans: LoanEntry[]): BorrowerSummary[] {
 }
 
 /**
+ * 构建用于导出的 JSON 字符串
+ * 含原始字段 + 截至当前/还款日计算出的应付利息与总还款额
+ * borrower 为空时导出全部，否则只导出该借款人
+ */
+export function buildExportJSON(loans: LoanEntry[], borrower?: string): string {
+  const selected = borrower ? loans.filter((l) => l.borrower === borrower) : loans;
+  const items = selected.map((l) => {
+    const interest = calcInterest(l);
+    return {
+      borrower: l.borrower,
+      amount: l.amount,
+      date: l.date,
+      annualRate: l.annualRate,
+      dueDate: l.dueDate ?? null,
+      status: l.status,
+      repaidDate: l.repaidDate ?? null,
+      repaidAmount: l.repaidAmount ?? null,
+      calculatedInterest: Number(interest.toFixed(2)),
+      totalRepayment: Number((l.amount + interest).toFixed(2)),
+    };
+  });
+  const payload = {
+    exportedAt: new Date().toISOString(),
+    scope: borrower ? `借款人：${borrower}` : '全部',
+    count: items.length,
+    loans: items,
+  };
+  return JSON.stringify(payload, null, 2);
+}
+
+/**
+ * 解析导入的 JSON 文本为 LoanEntry 列表
+ * 兼容本应用导出的格式（{ loans: [...] }）及纯数组格式
+ * 仅保留原始字段，忽略导出时附带的计算列，并为每条重新生成 id
+ */
+export function parseImportJSON(text: string): LoanEntry[] {
+  const data = JSON.parse(text);
+  const rawList: any[] = Array.isArray(data) ? data : Array.isArray(data?.loans) ? data.loans : [];
+  const result: LoanEntry[] = [];
+  for (const r of rawList) {
+    if (!r || typeof r.borrower !== 'string' || typeof r.amount !== 'number') continue;
+    result.push({
+      id: generateId(),
+      borrower: r.borrower,
+      amount: r.amount,
+      date: typeof r.date === 'string' ? r.date : new Date().toISOString().split('T')[0],
+      annualRate: typeof r.annualRate === 'number' ? r.annualRate : 0,
+      dueDate: r.dueDate || undefined,
+      status: r.status === 'repaid' ? 'repaid' : 'active',
+      repaidDate: r.repaidDate || undefined,
+      repaidAmount: typeof r.repaidAmount === 'number' ? r.repaidAmount : undefined,
+    });
+  }
+  return result;
+}
+
+/**
  * 生成唯一 ID
  */
 export function generateId(): string {

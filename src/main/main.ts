@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
 
@@ -142,4 +142,39 @@ ipcMain.handle('set-borrower-due-date', (_event, borrower: string, dueDate: stri
   });
   saveData(data);
   return data.loans;
+});
+
+ipcMain.handle(
+  'export-data',
+  async (_event, content: string, defaultFileName: string): Promise<{ ok: boolean; path?: string }> => {
+    if (!mainWindow) return { ok: false };
+    const { canceled, filePath } = await dialog.showSaveDialog(mainWindow, {
+      title: '导出借款数据',
+      defaultPath: defaultFileName,
+      filters: [{ name: 'JSON 文件', extensions: ['json'] }],
+    });
+    if (canceled || !filePath) return { ok: false };
+    fs.writeFileSync(filePath, content, 'utf-8');
+    return { ok: true, path: filePath };
+  }
+);
+
+ipcMain.handle(
+  'import-data',
+  async (_event): Promise<{ ok: boolean; content?: string }> => {
+    if (!mainWindow) return { ok: false };
+    const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, {
+      title: '导入借款数据',
+      filters: [{ name: 'JSON 文件', extensions: ['json'] }],
+      properties: ['openFile'],
+    });
+    if (canceled || filePaths.length === 0) return { ok: false };
+    const content = fs.readFileSync(filePaths[0], 'utf-8');
+    return { ok: true, content };
+  }
+);
+
+ipcMain.handle('replace-loans', (_event, loans: LoanEntry[]) => {
+  saveData({ loans });
+  return loans;
 });

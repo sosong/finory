@@ -11,6 +11,7 @@ interface Props {
   onEditLoan: (loan: LoanEntry) => void;
   onUpdateDueDate: (id: string, dueDate: string) => void;
   onSetBorrowerDueDate: (borrower: string) => void;
+  onExport: (borrower: string) => void;
 }
 
 export default function BorrowerGroup({
@@ -21,6 +22,7 @@ export default function BorrowerGroup({
   onEditLoan,
   onUpdateDueDate,
   onSetBorrowerDueDate,
+  onExport,
 }: Props) {
   const [expanded, setExpanded] = useState(true);
   const hasActiveLoans = summary.activeCount > 0;
@@ -49,22 +51,30 @@ export default function BorrowerGroup({
 
       {expanded && (
         <>
-          {hasActiveLoans && (
-            <div className="borrower-actions">
-              <button
-                className="btn-secondary small"
-                onClick={(e) => { e.stopPropagation(); onSetBorrowerDueDate(summary.borrower); }}
-              >
-                统一设置还款日
-              </button>
-              <button
-                className="btn-repay small"
-                onClick={(e) => { e.stopPropagation(); onRepayBorrower(summary.borrower); }}
-              >
-                全部标记还款
-              </button>
-            </div>
-          )}
+          <div className="borrower-actions">
+            {hasActiveLoans && (
+              <>
+                <button
+                  className="btn-secondary small"
+                  onClick={(e) => { e.stopPropagation(); onSetBorrowerDueDate(summary.borrower); }}
+                >
+                  统一设置还款日
+                </button>
+                <button
+                  className="btn-repay small"
+                  onClick={(e) => { e.stopPropagation(); onRepayBorrower(summary.borrower); }}
+                >
+                  全部标记还款
+                </button>
+              </>
+            )}
+            <button
+              className="btn-secondary small"
+              onClick={(e) => { e.stopPropagation(); onExport(summary.borrower); }}
+            >
+              导出
+            </button>
+          </div>
           <div className="loan-cards">
             {summary.loans.map((loan) => (
               <LoanCard

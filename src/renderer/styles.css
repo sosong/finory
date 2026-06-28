@@ -87,6 +87,16 @@ input, button {
   box-shadow: var(--shadow);
 }
 
+.stat-item.accent {
+  background: var(--accent);
+}
+.stat-item.accent .stat-value {
+  color: #fff;
+}
+.stat-item.accent .stat-label {
+  color: rgba(255, 255, 255, 0.85);
+}
+
 .stat-value {
   font-size: 24px;
   font-weight: 700;
@@ -107,11 +117,36 @@ input, button {
   margin-bottom: 20px;
 }
 
+.toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .view-tabs {
   display: flex;
   background: rgba(0, 0, 0, 0.05);
   border-radius: var(--radius-sm);
   padding: 2px;
+}
+
+.toast {
+  position: fixed;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2000;
+  padding: 10px 20px;
+  background: #1d1d1f;
+  color: #f5f5f7;
+  font-size: 13px;
+  border-radius: 999px;
+  box-shadow: var(--shadow-lg);
+  animation: toast-in 0.2s ease;
+}
+@keyframes toast-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(8px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
 
 .tab {
@@ -201,6 +236,12 @@ input, button {
 }
 .btn-delete:hover {
   background: rgba(255, 59, 48, 0.06);
+}
+
+.hint-text {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.7;
 }
 
 .btn-danger {
@@ -316,19 +357,28 @@ input, button {
 }
 
 .loan-card {
-  background: #fafafa;
-  border: 1px solid var(--border);
+  background: #f0f7ff;
+  border: 1px solid #d4e5fb;
   border-radius: var(--radius-sm);
   padding: 16px;
   transition: box-shadow 0.2s, border-color 0.2s;
 }
 .loan-card:hover {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  border-color: #c0c0c4;
+  border-color: #b3d2f5;
 }
 
 .loan-card.repaid {
-  opacity: 0.7;
+  background: #d8dade;
+  border-color: #c2c5cb;
+  opacity: 1;
+}
+.loan-card.repaid:hover {
+  border-color: #a8acb3;
+}
+.loan-card.repaid .loan-amount,
+.loan-card.repaid .detail-value {
+  color: #5a5d63;
 }
 
 .loan-card.overdue {
