@@ -1,6 +1,6 @@
 {
   "name": "finory",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "借款账本 - 轻松管理借贷记录",
   "main": "dist/main/main.js",
   "scripts": {
